@@ -12,7 +12,7 @@ using std::vector;
  */
 UKF::UKF() {
     // if this is false, laser measurements will be ignored (except during init)
-    use_laser_ = false;
+    use_laser_ = true;
 
     // if this is false, radar measurements will be ignored (except during init)
     use_radar_ = true;
@@ -26,10 +26,10 @@ UKF::UKF() {
     P_ = MatrixXd(5, 5);
 
     // Process noise standard deviation longitudinal acceleration in m/s^2//TODO manipulate it for stability
-    std_a_ = 30;
+    std_a_ = 1.5;
 
     // Process noise standard deviation yaw acceleration in rad/s^2  TODO manipulate it for stability
-    std_yawdd_ = 30;
+    std_yawdd_ = 0.57;
 
     // Laser measurement noise standard deviation position1 in m
     std_laspx_ = 0.15;
@@ -59,6 +59,10 @@ UKF::UKF() {
 
   Hint: one or more values initialized above might be wildly off...
   */
+
+    R_lidar_ = MatrixXd(2, 2);
+    R_lidar_ << std_laspx_*std_laspx_,0,
+            0,std_laspy_*std_laspy_;
     is_initialized_ = false;
     //state dimension
     n_x_ = 5;
@@ -69,7 +73,7 @@ UKF::UKF() {
 
     time_us_ = 0;
     //predicted sigma points
-    double NIS_laser,NIS_radar_ = 0.0;
+//    NIS_laser_,NIS_radar_ = 0.0;
 
     //initialize sigma point prediction matrix
     Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
@@ -85,6 +89,10 @@ UKF::UKF() {
             0,0,0,1,0,
             0,0,0,0,1;
 
+    //measurement matrix
+    H_ = MatrixXd(2, 5);
+    H_ << 1, 0, 0, 0,0,
+            0, 1, 0, 0,0;
     //set weights
     //set weights
     weights_ = VectorXd(2*n_aug_+1);
@@ -166,8 +174,15 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
     if(meas_package.sensor_type_ == MeasurementPackage::RADAR){
         //do radar update
+        cout << "RADAR UPDATE" << endl;
         UpdateRadar(meas_package);
+        cout << "RADAR UPDATE ENDED" << endl;
+
     }else{
+        cout << "LASER UPDATE" << endl;
+        UpdateLidar(meas_package);
+        cout << "LASER UPDATE ENDED" << endl;
+
         //dolaser update
     }
 
@@ -209,7 +224,7 @@ void UKF::Prediction(double delta_t) {
     x_aug(6) = 0;
 
     //create covariance matrix P
-    P_.fill(0.0);
+    P_aug.fill(0.0);
     P_aug.topLeftCorner(5,5) = P_;
     P_aug(5,5) = std_a_ * std_a_;
     P_aug(6,6) = std_yawdd_ * std_yawdd_;
@@ -292,11 +307,11 @@ void UKF::Prediction(double delta_t) {
         }
 
 
-        cout << "P" << P_ << endl;
-        cout << "x_" << x_ << endl;
+
 
     }
-
+    cout << "P" << P_ << endl;
+    cout << "x_" << x_ << endl;
 
   //
 
@@ -316,24 +331,32 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
-//
-//    int n_z_ = 2;
-//    //create example vector for incoming lidar measurement
-//    VectorXd z = VectorXd(n_z_);
-//    z << meas_package(0), meas_package(1);
-//
-//    //kalman gain
-//    // matrix for cross correlation
-//    MatrixXd Tc = MatrixXd(n_x_, n_z_);
-//    Tc.fill(0.0);
-//
-//    MatrixXd K = MatrixXd(n_x_, n_z_);
-//    K.fill(0.0);
-//
-//    MatrixXd S = MatrixXd(n_x_, n_z_);
-//    S.fill(0.0);
-//
-//    K = Tc * S.inverse();
+
+    int n_z_ = 2;
+    //create example vector for incoming lidar measurement
+    VectorXd z = VectorXd(n_z_);
+    z << meas_package.raw_measurements_(0), meas_package.raw_measurements_(1);
+    cout <<"z measurements" << z << endl;
+    VectorXd z_pred = H_ * x_;
+    VectorXd y = z - z_pred;
+    MatrixXd Ht = H_.transpose();
+    MatrixXd S = H_ * P_ * Ht + R_lidar_;
+    MatrixXd Si = S.inverse();
+    MatrixXd PHt = P_ * Ht;
+    MatrixXd K = PHt * Si;
+
+    //new estimate
+    x_ = x_ + (K * y);
+    long x_size = x_.size();
+    MatrixXd I = MatrixXd::Identity(x_size, x_size);
+    P_ = (I - K * H_) * P_;
+
+
+    cout<<"P after laser update:"<< endl;
+    cout<<P_<< endl;
+
+    cout<<"x after laser update:"<< endl;
+    cout<<x_<< endl;
 
 
 
@@ -444,5 +467,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     //update state mean and covariance matrix
     x_ = x_ + K * z_diff;
     P_ = P_ - K*S*K.transpose();
+
+    cout<<"P after radar update:"<< endl;
+    cout<<P_<< endl;
+
+    cout<<"x after radar update:"<< endl;
+    cout<<x_<< endl;
 
 }
