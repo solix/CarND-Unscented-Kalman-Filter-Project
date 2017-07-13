@@ -26,10 +26,10 @@ UKF::UKF() {
     P_ = MatrixXd(5, 5);
 
     // Process noise standard deviation longitudinal acceleration in m/s^2//TODO manipulate it for stability
-    std_a_ = 1;
+    std_a_ = 1.5;
 
     // Process noise standard deviation yaw acceleration in rad/s^2  TODO manipulate it for stability
-    std_yawdd_ = 0.8;
+    std_yawdd_ = 0.58;
 
     // Laser measurement noise standard deviation position1 in m
     std_laspx_ = 0.15;
@@ -47,22 +47,12 @@ UKF::UKF() {
     std_radrd_ = 0.3;
 
 
-
-
-
-
-  /**
-  TODO:
-
-  Complete the initialization. See ukf.h for other member properties.
-
-
-  Hint: one or more values initialized above might be wildly off...
-  */
-
     R_lidar_ = MatrixXd(2, 2);
+
     R_lidar_ << std_laspx_*std_laspx_,0,
             0,std_laspy_*std_laspy_;
+
+
     is_initialized_ = false;
     //state dimension
     n_x_ = 5;
@@ -77,17 +67,12 @@ UKF::UKF() {
 
     //initialize sigma point prediction matrix
     Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
-    Xsig_pred_ <<
-              5.9374,  6.0640,   5.925,  5.9436,  5.9266,  5.9374,  5.9389,  5.9374,  5.8106,  5.9457,  5.9310,  5.9465,  5.9374,  5.9359,  5.93744,
-            1.48,  1.4436,   1.660,  1.4934,  1.5036,    1.48,  1.4868,    1.48,  1.5271,  1.3104,  1.4787,  1.4674,    1.48,  1.4851,    1.486,
-            2.204,  2.2841,  2.2455,  2.2958,   2.204,   2.204,  2.2395,   2.204,  2.1256,  2.1642,  2.1139,   2.204,   2.204,  2.1702,   2.2049,
-            0.5367, 0.47338, 0.67809, 0.55455, 0.64364, 0.54337,  0.5367, 0.53851, 0.60017, 0.39546, 0.51900, 0.42991, 0.530188,  0.5367, 0.535048,
-            0.352, 0.29997, 0.46212, 0.37633,  0.4841, 0.41872,   0.352, 0.38744, 0.40562, 0.24347, 0.32926,  0.2214, 0.28687,   0.352, 0.318159;
-    P_ << 100,0,0,0,0,
-          0,100,0,0,0,
-           0, 0,100,0,0,
-            0,0,0,100,0,
-            0,0,0,0,100;
+
+    P_ << 1,0,0,0,0,
+          0,1,0,0,0,
+           0, 0,1,0,0,
+            0,0,0,1,0,
+            0,0,0,0,1;
 
     //measurement matrix
     H_ = MatrixXd(2, 5);
@@ -99,9 +84,9 @@ UKF::UKF() {
 
     double weigth_0 = lambda_/(lambda_ +n_aug_);
     weights_(0) = weigth_0;
-    for(int i = 1; i < n_aug_ + lambda_; i ++){
+    for(int i = 1; i < 2*n_aug_ + 1; i ++){
         double weight = 0.5 / (n_aug_ + lambda_);
-        weights_[i] = weight;
+        weights_(i) = weight;
     }
 
 
@@ -169,18 +154,17 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
     float dt = (meas_package.timestamp_ - time_us_) / 1000000.0;
     time_us_ = meas_package.timestamp_;
+    Prediction(dt);
 
 
     if(meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_){
         //do radar update
         cout << "RADAR UPDATE" << endl;
-        Prediction(dt);
         UpdateRadar(meas_package);
         cout << "RADAR UPDATE ENDED" << endl;
 
     }else if(meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_){
         cout << "LASER UPDATE" << endl;
-        Prediction(dt);
         UpdateLidar(meas_package);
         cout << "LASER UPDATE ENDED" << endl;
 
@@ -292,7 +276,7 @@ void UKF::Prediction(double delta_t) {
 //mean and covariance estimation
 
 
-//    x_.fill(0.0);
+    x_.fill(0.0);
 
     //predicted state mean
     for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
