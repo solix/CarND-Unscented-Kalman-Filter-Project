@@ -29,7 +29,7 @@ UKF::UKF() {
     std_a_ = 1.5;
 
     // Process noise standard deviation yaw acceleration in rad/s^2  TODO manipulate it for stability
-    std_yawdd_ = 0.58;
+    std_yawdd_ = 0.2;
 
     // Laser measurement noise standard deviation position1 in m
     std_laspx_ = 0.15;
@@ -68,11 +68,11 @@ UKF::UKF() {
     //initialize sigma point prediction matrix
     Xsig_pred_ = MatrixXd(n_x_, 2 * n_aug_ + 1);
 
-    P_ << 1,0,0,0,0,
-          0,1,0,0,0,
-           0, 0,1,0,0,
-            0,0,0,1,0,
-            0,0,0,0,1;
+    P_ << 0.15,0,0,0,0,
+          0,0.15,0,0,0,
+           0, 0,10,0,0,
+            0,0,0,10,0,
+            0,0,0,0,10;
 
     //measurement matrix
     H_ = MatrixXd(2, 5);
@@ -134,9 +134,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
              //ELSE LIDAR
              cout << "Recieving LASER Data: " << endl;
 
-             x_ << meas_package.raw_measurements_[0], meas_package.raw_measurements_[1], 2.2049,
-                     0.5015,
-                     0.3528;
+             x_ << meas_package.raw_measurements_[0], meas_package.raw_measurements_[1], 0,
+                     0,
+                     0;
              cout << "END LASER Data: "<<x_ << endl;
 
          }
